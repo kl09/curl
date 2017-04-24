@@ -3,12 +3,14 @@ namespace EacLibrary\RequestTrait;
 
 trait RequestTrait
 {
-    public static $maxTimeOut = 2;
-    public static $sid;
-    public static $siteName;
+    private $maxTimeOut = 10;
     private $statusCode;
     private $response;
+    private $method = "GET";
+    private $body;
     private $headers;
+    private $addHeader = false;
+    private $siteHost = 'http://example.org';
     private $url;
     private $timer;
 
@@ -21,6 +23,25 @@ trait RequestTrait
     /**
      * @return int
      */
+    public function getMaxTimeOut()
+    {
+        return $this->maxTimeOut;
+    }
+
+    /**
+     * @param $maxTimeOut
+     * @return $this
+     */
+    public function setMaxTimeOut($maxTimeOut)
+    {
+        $this->maxTimeOut = $maxTimeOut;
+
+        return $this;
+    }
+
+    /**
+     * @return mixed
+     */
     public function getStatusCode()
     {
         return $this->statusCode;
@@ -29,13 +50,100 @@ trait RequestTrait
     /**
      * @return string
      */
+    public function getMethod()
+    {
+        return $this->method;
+    }
+
+    /**
+     * @param string $method
+     * @return $this
+     */
+    public function setMethod($method)
+    {
+        $this->method = $method;
+
+        return $this;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getBody()
+    {
+        return $this->body;
+    }
+
+    /**
+     * @param mixed $body
+     * @return $this
+     */
+    public function setBody($body)
+    {
+        $this->body = $body;
+
+        return $this;
+    }
+
+    /**
+     * @return mixed
+     */
     public function getHeaders()
     {
         return $this->headers;
     }
 
     /**
+     * @param mixed $headers
+     * @return $this
+     */
+    public function setHeaders($headers)
+    {
+        $this->headers = $headers;
+
+        return $this;
+    }
+
+    /**
+     * @return boolean
+     */
+    public function isAddHeader()
+    {
+        return $this->addHeader;
+    }
+
+    /**
+     * @param boolean $addHeader
+     * @return $this
+     */
+    public function setAddHeader($addHeader)
+    {
+        $this->addHeader = $addHeader;
+
+        return $this;
+    }
+
+    /**
      * @return string
+     */
+    public function getSiteHost()
+    {
+        return $this->siteHost;
+    }
+
+    /**
+     * @param string $siteHost
+     * @return $this
+     */
+    public function setSiteHost($siteHost)
+    {
+        $this->siteHost = $siteHost;
+
+        return $this;
+    }
+
+    /**
+     * @return mixed
      */
     public function getUrl()
     {
@@ -43,7 +151,18 @@ trait RequestTrait
     }
 
     /**
-     * @return float
+     * @param mixed $url
+     * @return $this
+     */
+    public function setUrl($url)
+    {
+        $this->url = $url;
+
+        return $this;
+    }
+
+    /**
+     * @return mixed
      */
     public function getTimer()
     {
@@ -67,78 +186,54 @@ trait RequestTrait
     }
 
 
-    /**
-     * CURL Request
-     *
-     * @param string $path
-     * @param string $method
-     * @param string $body
-     * @param array $headers
-     * @return static
-     */
-    public static function request($path = null, $method = 'GET', $body = null, $headers = [])
+    public static function response()
     {
-        $o = new self();
-        $o->url = 'http://' . str_replace('//', '/', self::$siteName . '/' . $path);
-        $sid = self::$sid;
+        return new self();
+    }
 
-        $curl = curl_init($o->url);
-        $headers = array_merge([
-            'Accept: text/html,application/json',
-            'Accept-Language: ru-RU,ru',
-            'Host:' . $_SERVER['HTTP_HOST'],
-            'Content-Length: ' . strlen($body),
-        ], $headers);
 
-        if ($sid) {
-            $headers[] = sprintf('Cookie: %s=%s', session_name(), $sid);
+    public function execute()
+    {
+        $re = '/^(https:\/\/|http:\/\/)(.*)$/';
+        preg_match_all($re, $this->url, $matches, PREG_SET_ORDER, 0);
+        if (!isset($matches[0])) {
+            $this->url = $this->siteHost . $this->url;
         }
 
-        curl_setopt($curl, CURLOPT_CUSTOMREQUEST, $method);
-        curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
+        $curl = curl_init($this->url);
+        curl_setopt($curl, CURLOPT_CUSTOMREQUEST, $this->method);
+
+        if ($this->addHeader == true) {
+            $headers = array_merge([
+                'Accept: text/html,application/json',
+                'Accept-Language: ru-RU,ru',
+                'Host:' . $_SERVER['HTTP_HOST'],
+                'Content-Length: ' . strlen($this->body),
+            ], $this->headers);
+
+            curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
+        }
+
         curl_setopt($curl, CURLOPT_HEADER, true);
-        curl_setopt($curl, CURLOPT_TIMEOUT, self::$maxTimeOut);
+        curl_setopt($curl, CURLOPT_TIMEOUT, $this->maxTimeOut);
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-        if ($body) {
-            curl_setopt($curl, CURLOPT_POSTFIELDS, $body);
+        if ($this->body) {
+            curl_setopt($curl, CURLOPT_POSTFIELDS, $this->body);
         }
 
-        $timer = microtime(true);
+        $response = curl_exec($curl);
 
-        $response = $o->parseHeaders(curl_exec($curl));
-        $o->timer = microtime(true) - $timer;
-        $o->response = $response->body;
-        $o->headers = $response->headers;
-        $o->statusCode = (int)curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        $header_size = curl_getinfo($curl, CURLINFO_HEADER_SIZE);
+        $this->timer = curl_getinfo($curl, CURLINFO_TOTAL_TIME);
+
+        $this->response = substr($response, $header_size);
+        $this->headers = substr($response, 0, $header_size);
+
+        $this->statusCode = (int)curl_getinfo($curl, CURLINFO_HTTP_CODE);
+
         curl_close($curl);
 
-        return $o;
+        return $this;
     }
 
-    protected function parseHeaders($curlResponse)
-    {
-        $response = new \stdClass();
-        $headers = [];
-
-        $response->body = substr($curlResponse, strpos($curlResponse, "\r\n\r\n") + 4);
-        $headersText = substr($curlResponse, 0, strpos($curlResponse, "\r\n\r\n"));
-
-        foreach (explode("\r\n", $headersText) as $i => $line) {
-            if ($i === 0) {
-                $headers['http_code'] = $line;
-            } else {
-                list ($key, $value) = explode(': ', $line);
-
-                if (array_key_exists($key, $headers) || $key == 'Set-Cookie') {
-                    $headers[$key] = (array)$headers[$key];
-                    $headers[$key][] = $value;
-                } else {
-                    $headers[$key] = $value;
-                }
-            }
-        }
-        $response->headers = $headers;
-
-        return $response;
-    }
 }
