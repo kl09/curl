@@ -8,12 +8,15 @@ trait RequestTrait
     private $response;
     private $method = "GET";
     private $body;
-    private $headers;
+    private $headers = [];
     private $addHeader = false;
     private $siteHost = 'http://example.org';
     private $url;
     private $timer;
-
+    private $login = true;
+    private $userName = 'userName';
+    private $userPass = 'userPass';
+    private $userAgent = "Mozilla/4.0";
 
     public function __construct()
     {
@@ -169,6 +172,65 @@ trait RequestTrait
         return $this->timer;
     }
 
+    /**
+     * @return boolean
+     */
+    public function isLogin()
+    {
+        return $this->login;
+    }
+
+    /**
+     * @param boolean $login
+     * @return $this
+     */
+    public function setLogin($login)
+    {
+        $this->login = $login;
+
+        return $this;
+    }
+
+    /**
+     * @param string $userName
+     * @return $this
+     */
+    public function setUserName($userName)
+    {
+        $this->userName = $userName;
+
+        return $this;
+    }
+
+    /**
+     * @param string $userPass
+     * @return $this
+     */
+    public function setUserPass($userPass)
+    {
+        $this->userPass = $userPass;
+
+        return $this;
+    }
+
+    /**
+     * @return string
+     */
+    public function getUserAgent()
+    {
+        return $this->userAgent;
+    }
+
+    /**
+     * @param string $userAgent
+     * @return $this;
+     */
+    public function setUserAgent($userAgent)
+    {
+        $this->userAgent = $userAgent;
+
+        return $this;
+    }
 
     /**
      * @param bool $jsonDecode
@@ -203,12 +265,12 @@ trait RequestTrait
         $curl = curl_init($this->url);
         curl_setopt($curl, CURLOPT_CUSTOMREQUEST, $this->method);
 
-        if ($this->addHeader == true) {
+        if ($this->addHeader == true && is_array($this->headers)) {
             $headers = array_merge([
                 'Accept: text/html,application/json',
                 'Accept-Language: ru-RU,ru',
                 'Host:' . $_SERVER['HTTP_HOST'],
-                'Content-Length: ' . strlen($this->body),
+                'Content-Length: ' . strlen($this->body)
             ], $this->headers);
 
             curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
@@ -217,6 +279,13 @@ trait RequestTrait
         curl_setopt($curl, CURLOPT_HEADER, true);
         curl_setopt($curl, CURLOPT_TIMEOUT, $this->maxTimeOut);
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($curl, CURLOPT_USERAGENT, $this->userAgent);
+
+        if ($this->login) {
+            curl_setopt($curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+            curl_setopt($curl, CURLOPT_USERPWD, $this->userName . ":" . $this->userPass);
+        }
+
         if ($this->body) {
             curl_setopt($curl, CURLOPT_POSTFIELDS, $this->body);
         }
@@ -230,7 +299,6 @@ trait RequestTrait
         $this->headers = substr($response, 0, $header_size);
 
         $this->statusCode = (int)curl_getinfo($curl, CURLINFO_HTTP_CODE);
-
         curl_close($curl);
 
         return $this;
