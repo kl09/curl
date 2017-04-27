@@ -1,4 +1,5 @@
 #Example
+
     $obj = self::response()
         ->setSiteHost('https://example.org/')
         ->setUrl('/api/v1/MethodName')
