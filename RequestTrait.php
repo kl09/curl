@@ -17,10 +17,30 @@ trait RequestTrait
     private $userName = 'userName';
     private $userPass = 'userPass';
     private $userAgent = "Mozilla/4.0";
+    private $followLocation = true;
 
     public function __construct()
     {
 
+    }
+
+    /**
+     * @return boolean
+     */
+    public function isFollowLocation()
+    {
+        return $this->followLocation;
+    }
+
+    /**
+     * @param boolean $followLocation
+     * @return $this
+     */
+    public function setFollowLocation($followLocation)
+    {
+        $this->followLocation = $followLocation;
+
+        return $this;
     }
 
     /**
@@ -280,6 +300,7 @@ trait RequestTrait
         curl_setopt($curl, CURLOPT_TIMEOUT, $this->maxTimeOut);
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($curl, CURLOPT_USERAGENT, $this->userAgent);
+        curl_setopt($curl, CURLOPT_FOLLOWLOCATION, $this->followLocation);
 
         if ($this->login) {
             curl_setopt($curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
